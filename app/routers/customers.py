@@ -1,45 +1,11 @@
-import zoneinfo
-from fastapi import FastAPI, HTTPException, status
-from datetime import datetime
-
-from models import CustomerCreate,CustomerUpdate,Customer, Transaction, Invoice
-
-from db import SessionDep, create_all_tables
+from fastapi import APIRouter, status, HTTPException
 from sqlmodel import select
+from models import CustomerCreate,CustomerUpdate,Customer
+from db import SessionDep
 
-app = FastAPI(lifespan=create_all_tables)
+router = APIRouter()
 
-
-@app.get("/")
-def read_root():
-    return {"Hello": "World"}
-
-
-@app.get("/items/{item_id}")
-def read_item(item_id: int, q: str | None = None):
-    return {"item_id": item_id, "q": q}
-
-country_timezones = {
-    "BR": "America/Sao_Paulo",
-    "US": "America/New_York",
-    "IN": "Asia/Kolkata",
-    "CO": "America/Bogota",
-    "MX": "America/Mexico_City",
-    "PE": "America/Lima",
-}
-
-@app.get("/time/{iso_code}")
-async def time(iso_code: str):
-    iso = iso_code.upper()
-    timezone_str = country_timezones.get(iso)
-    tz = zoneinfo.ZoneInfo(timezone_str)
-    now = datetime.now(tz)
-    return {"time": f"{now}"}
-
-db_customers: list[Customer] = []
-
-
-@app.post("/customers", response_model=Customer)
+@router.post("/customers", response_model=Customer, tags=["Customers"])
 async def create_customer(customer_data: CustomerCreate, session: SessionDep):
     customer = Customer.model_validate(customer_data.model_dump())
     session.add(customer)
@@ -49,7 +15,7 @@ async def create_customer(customer_data: CustomerCreate, session: SessionDep):
     #db_customers.append(customer)
     return customer
 
-@app.get("/customers/{customer_id}", response_model=Customer)
+@router.get("/customers/{customer_id}", response_model=Customer, tags=["Customers"])
 async def read_customer(customer_id: int, session: SessionDep):
     customer = session.get(Customer, customer_id)
     if customer is None:
@@ -57,7 +23,7 @@ async def read_customer(customer_id: int, session: SessionDep):
     
     return customer
 
-@app.patch("/customers/{customer_id}", response_model=Customer, status_code=status.HTTP_201_CREATED)
+@router.patch("/customers/{customer_id}", response_model=Customer, status_code=status.HTTP_201_CREATED, tags=["Customers"])
 async def update_customer(customer_id: int, customer_data: CustomerUpdate, session: SessionDep):
     customer = session.get(Customer, customer_id)
     if customer is None:
@@ -69,7 +35,7 @@ async def update_customer(customer_id: int, customer_data: CustomerUpdate, sessi
     session.refresh(customer)
     return customer
 
-@app.delete("/customers/{customer_id}")
+@router.delete("/customers/{customer_id}", tags=["Customers"])
 async def delete_customer(customer_id: int, session: SessionDep):
     customer = session.get(Customer, customer_id)
     if customer is None:
@@ -80,15 +46,7 @@ async def delete_customer(customer_id: int, session: SessionDep):
         "deleted": True
     }
 
-@app.get("/customers", response_model=list[Customer])
+@router.get("/customers", response_model=list[Customer], tags=["Customers"])
 async def list_customers(session: SessionDep):
     db_customers = session.exec(select(Customer)).all()
     return db_customers
-
-@app.post("/transactions")
-async def create_transactions(transaction_data: Transaction):
-    return transaction_data
-
-@app.post("/invoices")
-async def create_invoices(invoice_data: Invoice):
-    return invoice_data

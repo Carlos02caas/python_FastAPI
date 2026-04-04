@@ -1,7 +1,10 @@
 import time
+from typing import Annotated
 import zoneinfo
-from fastapi import FastAPI, HTTPException, Request, status
+from fastapi import Depends, FastAPI, HTTPException, Request, status
 from datetime import datetime
+
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
 
 from models import  Transaction, Invoice
 
@@ -22,9 +25,16 @@ async def log_request_time(request: Request, call_next):
     print(f"Request {request.method} {request.url} executed in {process_time:.4f} seconds")
     return response
 
+security = HTTPBasic()
+
 @app.get("/")
-def read_root():
-    return {"Hello": "World"}
+def read_root(credentials: Annotated[HTTPBasicCredentials, Depends(security)]):
+    print(credentials)
+    if credentials.username == "calavez" and credentials.password == "123456":
+        return {"message": f"Hola, {credentials.username}"}
+    else:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
+    
 
 
 @app.get("/items/{item_id}")
